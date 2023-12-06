@@ -1,0 +1,22 @@
+/home/casa3/projects/bev_transformer/carla_gym/envs/scenario_descriptions/LeaderBoard/Town01
+10
+WARNING: Version mismatch detected: You are trying to connect to a simulator that might be incompatible with this API 
+WARNING: Client API version     = 784d9b9f 
+WARNING: Simulator API version  = 0.9.10 
+/home/casa3/projects/bev_transformer/.venv/lib/python3.8/site-packages/gym/spaces/box.py:73: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
+  logger.warn(
+  0%|                                                                       | 0/1 [00:00<?, ?it/s]  0%|                                                                       | 0/1 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "data_collect.py", line 101, in <module>
+    (episode_dir / 'birdview_masks').mkdir(parents=True)
+  File "/usr/lib/python3.8/pathlib.py", line 1266, in mkdir
+    self._accessor.mkdir(self, mode)
+FileExistsError: [Errno 17] File exists: 'gail_experts/route_00/ep_00/birdview_masks'
+/home/casa3/projects/bev_transformer/carla_gym/envs/scenario_descriptions/LeaderBoard/Town01
+10
+WARNING: Version mismatch detected: You are trying to connect to a simulator that might be incompatible with this API 
+WARNING: Client API version     = 784d9b9f 
+WARNING: Simulator API version  = 0.9.10 
+/home/casa3/projects/bev_transformer/.venv/lib/python3.8/site-packages/gym/spaces/box.py:73: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
+  logger.warn(
+  0%|                                                                       | 0/1 [00:00<?, ?it/s]100%|██████████████████████████████████████████████████████████████| 1/1 [05:36<00:00, 336.13s/it]100%|██████████████████████████████████████████████████████████████| 1/1 [05:36<00:00, 336.13s/it]
