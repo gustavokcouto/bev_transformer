@@ -11,6 +11,63 @@ import pandas as pd
 from PIL import Image
 
 
+EXTRINSICS = [
+        [[ 8.2272e-01, -5.6820e-01,  1.6596e-02, -9.1257e-01],
+        [ 2.9975e-02,  1.4210e-02, -9.9945e-01,  1.4916e+00],
+        [ 5.6766e-01,  8.2277e-01,  2.8723e-02, -1.2722e+00],
+        [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[ 1.1086e-02, -9.9989e-01, -9.7436e-03,  9.0332e-03],
+        [ 3.1933e-02,  1.0093e-02, -9.9944e-01,  1.4837e+00],
+        [ 9.9943e-01,  1.0768e-02,  3.2042e-02, -1.6240e+00],
+        [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        [[-8.4308e-01, -5.3668e-01, -3.4468e-02,  9.9829e-01],
+        [ 3.9957e-02,  1.4029e-03, -9.9920e-01,  1.4975e+00],
+        [ 5.3630e-01, -8.4379e-01,  2.0261e-02, -1.2162e+00],
+        [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        # [[ 8.2272e-01, -5.6820e-01,  1.6596e-02, -9.1257e-01],
+        # [ 2.9975e-02,  1.4210e-02, -9.9945e-01,  1.4916e+00],
+        # [ 5.6766e-01,  8.2277e-01,  2.8723e-02, -1.2722e+00],
+        # [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        # [[ 1.1086e-02, -9.9989e-01, -9.7436e-03,  9.0332e-03],
+        # [ 3.1933e-02,  1.0093e-02, -9.9944e-01,  1.4837e+00],
+        # [ 9.9943e-01,  1.0768e-02,  3.2042e-02, -1.6240e+00],
+        # [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+
+        # [[-8.4308e-01, -5.3668e-01, -3.4468e-02,  9.9829e-01],
+        # [ 3.9957e-02,  1.4029e-03, -9.9920e-01,  1.4975e+00],
+        # [ 5.3630e-01, -8.4379e-01,  2.0261e-02, -1.2162e+00],
+        # [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
+]
+INTRINSICS = [
+        [[377.3588,   0.0000, 248.1723],
+        [  0.0000, 377.3588,  89.2746],
+        [  0.0000,   0.0000,   1.0000]],
+
+        [[375.8439,   0.0000, 247.9764],
+        [  0.0000, 375.8439,  94.9954],
+        [  0.0000,   0.0000,   1.0000]],
+
+        [[377.0246,   0.0000, 245.3366],
+        [  0.0000, 377.0246,  89.5863],
+        [  0.0000,   0.0000,   1.0000]],
+
+        # [[377.3588,   0.0000, 248.1723],
+        # [  0.0000, 377.3588,  89.2746],
+        # [  0.0000,   0.0000,   1.0000]],
+
+        # [[375.8439,   0.0000, 247.9764],
+        # [  0.0000, 375.8439,  94.9954],
+        # [  0.0000,   0.0000,   1.0000]],
+
+        # [[377.0246,   0.0000, 245.3366],
+        # [  0.0000, 377.0246,  89.5863],
+        # [  0.0000,   0.0000,   1.0000]],
+]
+
 class ExpertDataset(th.utils.data.Dataset):
     def __init__(self, dataset_directory, n_routes=1, n_eps=1, route_start=0, ep_start=0):
         self.dataset_path = Path(dataset_directory)
@@ -18,6 +75,9 @@ class ExpertDataset(th.utils.data.Dataset):
         self.get_idx = []
         self.trajs_states = []
         self.trajs_actions = []
+        self.w_resize = 480
+        self.h_resize = 224
+        self.bev_resize = 200
 
         for route_idx in range(route_start, route_start + n_routes):
             for ep_idx in range(ep_start, ep_start + n_eps):
@@ -39,10 +99,15 @@ class ExpertDataset(th.utils.data.Dataset):
     def __len__(self):
         return self.length
 
-    def process_image(self, image_path):
+    def process_image(self, image_path, birdview=False):
         image_array = Image.open(image_path)
+        if birdview:
+            image_array = image_array.resize((self.bev_resize, self.bev_resize), resample=Image.BILINEAR)
+        else:
+            image_array = image_array.resize((self.w_resize, self.h_resize), resample=Image.BILINEAR)
         image_array = np.transpose(image_array, [2, 0, 1])
         image_tensor = th.as_tensor(image_array.copy())
+        image_tensor = image_tensor / 255.0
         return image_tensor
 
     def __getitem__(self, j):
@@ -52,27 +117,25 @@ class ExpertDataset(th.utils.data.Dataset):
             ep_dir = self.dataset_path / 'route_{:0>2d}/ep_{:0>2d}'.format(route_idx, ep_idx)
             masks_list = []
             for mask_index in range(1):
-                mask_tensor = self.process_image(ep_dir / 'birdview_masks/{:0>4d}_{:0>2d}.png'.format(step_idx, mask_index))
+                mask_tensor = self.process_image(ep_dir / 'birdview_masks/{:0>4d}_{:0>2d}.png'.format(step_idx, mask_index), birdview=True)
                 masks_list.append(mask_tensor)
             birdview = th.cat(masks_list)
 
             central_rgb = self.process_image(ep_dir / 'central_rgb/{:0>4d}.png'.format(step_idx))
             left_rgb = self.process_image(ep_dir / 'left_rgb/{:0>4d}.png'.format(step_idx))
             right_rgb = self.process_image(ep_dir / 'right_rgb/{:0>4d}.png'.format(step_idx))
-
+            images = th.stack([left_rgb, central_rgb, right_rgb])
+            extrinsics = th.Tensor(EXTRINSICS)
+            intrinsics = th.Tensor(INTRINSICS)
             obs_dict = {
-                'birdview': birdview,
-                'central_rgb': central_rgb,
-                'left_rgb': left_rgb,
-                'right_rgb': right_rgb,
-                'item_idx': j
+                'bev': birdview,
+                'image': images,
+                'extrinsics': extrinsics,
+                'intrinsics': intrinsics
             }
 
-            state_dict = self.trajs_states[j]
-            for state_key in state_dict:
-                obs_dict[state_key] = th.Tensor(state_dict[state_key])
             self.actual_obs[j] = obs_dict
         else:
             obs_dict = self.actual_obs[j]
 
-        return obs_dict, self.trajs_actions[j]
+        return obs_dict
