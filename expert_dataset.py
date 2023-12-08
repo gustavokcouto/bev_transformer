@@ -8,7 +8,7 @@ import torch as th
 import numpy as np
 import pandas as pd
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 EXTRINSICS = [
@@ -27,6 +27,10 @@ EXTRINSICS = [
         [ 5.3630e-01, -8.4379e-01,  2.0261e-02, -1.2162e+00],
         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
 
+        [[-2.1208e-01, -3.1884e-01, -2.3248e-02,  5.4234e-01],
+        [ 5.2442e-02,  -2.2342e-03, -7.43243e-01,  9.42334e+00],
+        [ -2.5345e-01, 7.4324e-01,  -4.4324e-02, 2.4233e+00],
+        [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]],
         # [[ 8.2272e-01, -5.6820e-01,  1.6596e-02, -9.1257e-01],
         # [ 2.9975e-02,  1.4210e-02, -9.9945e-01,  1.4916e+00],
         # [ 5.6766e-01,  8.2277e-01,  2.8723e-02, -1.2722e+00],
@@ -55,6 +59,9 @@ INTRINSICS = [
         [  0.0000, 377.0246,  89.5863],
         [  0.0000,   0.0000,   1.0000]],
 
+        [[377.0246,   0.0000, 245.3366],
+        [  0.0000, 377.0246,  89.5863],
+        [  0.0000,   0.0000,   1.0000]],
         # [[377.3588,   0.0000, 248.1723],
         # [  0.0000, 377.3588,  89.2746],
         # [  0.0000,   0.0000,   1.0000]],
@@ -67,6 +74,35 @@ INTRINSICS = [
         # [  0.0000, 377.0246,  89.5863],
         # [  0.0000,   0.0000,   1.0000]],
 ]
+
+
+
+def traj_plotter_rgb(traj, img_path=None):
+    img_size = 192
+    radius = 10
+    color = (255, 255, 255)
+    scale = 500
+    point_idx = -1
+    img = Image.fromarray(np.zeros((224, 480, 3), dtype=np.uint8))
+    draw = ImageDraw.Draw(img)
+    while (point_idx + 1) * 2 <= len(traj):
+        if point_idx < 0:
+            x = traj[1] * scale
+            y = -1 * traj[0] * scale
+        elif point_idx == 0:
+            x = 0
+            y = 0
+        else:
+            x = traj[point_idx*2 + 1] * scale
+            y = -1 * traj[point_idx*2] * scale
+        x += img_size / 2
+        y += img_size - 40
+        draw.ellipse([x - radius, y - radius, x + radius, y + radius], fill=color)
+        point_idx += 1
+    image_array = np.transpose(img, [2, 0, 1])
+    image_tensor = th.as_tensor(image_array)
+    return image_tensor
+
 
 class ExpertDataset(th.utils.data.Dataset):
     def __init__(self, dataset_directory, n_routes=1, n_eps=1, route_start=0, ep_start=0):
@@ -124,16 +160,18 @@ class ExpertDataset(th.utils.data.Dataset):
             central_rgb = self.process_image(ep_dir / 'central_rgb/{:0>4d}.png'.format(step_idx))
             left_rgb = self.process_image(ep_dir / 'left_rgb/{:0>4d}.png'.format(step_idx))
             right_rgb = self.process_image(ep_dir / 'right_rgb/{:0>4d}.png'.format(step_idx))
-            images = th.stack([left_rgb, central_rgb, right_rgb])
+            state_dict = self.trajs_states[j]
+            traj_plot_rgb = traj_plotter_rgb(state_dict['traj'])
+
+            images = th.stack([left_rgb, central_rgb, right_rgb, traj_plot_rgb])
             extrinsics = th.Tensor(EXTRINSICS)
             intrinsics = th.Tensor(INTRINSICS)
             obs_dict = {
                 'bev': birdview,
                 'image': images,
                 'extrinsics': extrinsics,
-                'intrinsics': intrinsics
+                'intrinsics': intrinsics,
             }
-
             self.actual_obs[j] = obs_dict
         else:
             obs_dict = self.actual_obs[j]

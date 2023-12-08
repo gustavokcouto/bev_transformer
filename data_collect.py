@@ -94,7 +94,7 @@ if __name__ == '__main__':
     expert_file_dir = Path('gail_experts')
     expert_file_dir.mkdir(parents=True, exist_ok=True)
     # obs_metrics = ['control', 'vel_xy', 'linear_speed', 'vec', 'traj', 'cmd', 'command', 'state']
-    for route_id in tqdm.tqdm(range(1)):
+    for route_id in tqdm.tqdm(range(10)):
         env.set_task_idx(route_id)
         for ep_id in range(1):
             episode_dir = expert_file_dir / ('route_%02d' % route_id) / ('ep_%02d' % ep_id)
@@ -112,6 +112,7 @@ if __name__ == '__main__':
             ep_dict['done'] = []
             ep_dict['actions'] = []
             ep_dict['state'] = []
+            ep_dict['traj'] = []
             actions_ep = []
             i_step = 0
             c_route = False
@@ -119,6 +120,11 @@ if __name__ == '__main__':
                 state_list = []
                 ep_dict['done'].append(c_route)
                 action = basic_agent.get_action()
+                control = carla.VehicleControl(throttle=action[0], steer=action[1])
+                control, _, _ = longitudinal_noiser.compute_noise(control, obs['linear_speed'][0] * 3.6)
+                control, _, _ = lateral_noiser.compute_noise(control, obs['linear_speed'][0] * 3.6)
+                action[0] = control.throttle
+                action[1] = control.steer
                 ep_dict['actions'].append([action[0], action[1]])
                 birdview = obs['birdview']
                 for i_mask in range(1):
@@ -139,6 +145,7 @@ if __name__ == '__main__':
                 Image.fromarray(right_rgb).save(episode_dir / 'right_rgb' / '{:0>4d}.png'.format(i_step))
 
                 ep_dict['state'].append(obs['state'])
+                ep_dict['traj'].append(obs['traj'])
 
                 obs, reward, done, info = env.step(action)
                 c_route = info['route_completion']['is_route_completed']

@@ -155,6 +155,31 @@ class RlBirdviewWrapper(gym.Wrapper):
             'birdview': birdview
         })
 
+        ev_gps = obs['gnss']['gnss']
+        # imu nan bug
+        compass = 0.0 if np.isnan(obs['gnss']['imu'][-1]) else obs['gnss']['imu'][-1]
+        ref_rot_in_global = carla.Rotation(yaw=np.rad2deg(compass)-90.0)
+        ev_loc = gps_util.gps_to_location(ev_gps)
+
+        traj_points = obs['gnss']['traj_points']
+        traj_locs = []
+        point_idx = 0
+        while (point_idx + 1) * 3 <= traj_points.shape[0]:
+            gps_point = traj_points[point_idx * 3:(point_idx + 1) * 3]
+            target_vec_in_global = gps_util.gps_to_location(gps_point) - ev_loc
+            loc_in_ev = trans_utils.vec_global_to_ref(target_vec_in_global, ref_rot_in_global)
+            traj_locs.append(loc_in_ev)
+            point_idx += 1
+
+        gps_point = obs['gnss']['target_gps']
+        target_vec_in_global = gps_util.gps_to_location(gps_point) - ev_loc
+        loc_in_ev = trans_utils.vec_global_to_ref(target_vec_in_global, ref_rot_in_global)
+
+        traj_vec = []
+        for traj_loc_in_ev in traj_locs:
+            traj_vec.extend([traj_loc_in_ev.x / 100.0, traj_loc_in_ev.y / 100.0])
+            obs_dict['traj'] = np.array(traj_vec)
+
         central_rgb = obs['central_rgb']['data']
         central_rgb = np.transpose(central_rgb, [2, 0, 1])
 
@@ -164,10 +189,12 @@ class RlBirdviewWrapper(gym.Wrapper):
         right_rgb = obs['right_rgb']['data']
         right_rgb = np.transpose(right_rgb, [2, 0, 1])
 
+        linear_speed = np.array(obs['speed']['forward_speed'])
         obs_dict.update({
             'central_rgb': central_rgb,
             'left_rgb': left_rgb,
-            'right_rgb': right_rgb
+            'right_rgb': right_rgb,
+            'linear_speed': linear_speed
         })
 
         return obs_dict
