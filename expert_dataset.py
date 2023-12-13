@@ -77,13 +77,12 @@ INTRINSICS = [
 
 
 
-def traj_plotter_rgb(traj, img_path=None):
-    img_size = 192
+def traj_plotter_rgb(traj, bev_size, img_path=None):
     radius = 10
     color = (255, 255, 255)
     scale = 500
     point_idx = -1
-    img = Image.fromarray(np.zeros((224, 480, 3), dtype=np.uint8))
+    img = Image.fromarray(np.zeros((bev_size, bev_size, 3), dtype=np.uint8))
     draw = ImageDraw.Draw(img)
     while (point_idx + 1) * 2 <= len(traj):
         if point_idx < 0:
@@ -95,8 +94,8 @@ def traj_plotter_rgb(traj, img_path=None):
         else:
             x = traj[point_idx*2 + 1] * scale
             y = -1 * traj[point_idx*2] * scale
-        x += img_size / 2
-        y += img_size - 40
+        x += bev_size / 2
+        y += bev_size - 40
         draw.ellipse([x - radius, y - radius, x + radius, y + radius], fill=color)
         point_idx += 1
     image_array = np.transpose(img, [2, 0, 1])
@@ -105,15 +104,20 @@ def traj_plotter_rgb(traj, img_path=None):
 
 
 class ExpertDataset(th.utils.data.Dataset):
-    def __init__(self, dataset_directory, n_routes=1, n_eps=1, route_start=0, ep_start=0):
+    def __init__(self, dataset_directory, n_routes=1, n_eps=1, route_start=0, ep_start=0, unet=False):
         self.dataset_path = Path(dataset_directory)
         self.length = 0
         self.get_idx = []
         self.trajs_states = []
         self.trajs_actions = []
-        self.w_resize = 480
-        self.h_resize = 224
-        self.bev_resize = 200
+        if unet:
+            self.w_resize = 192
+            self.h_resize = 192
+            self.bev_resize = 192
+        else:
+            self.w_resize = 480
+            self.h_resize = 224
+            self.bev_resize = 200
 
         for route_idx in range(route_start, route_start + n_routes):
             for ep_idx in range(ep_start, ep_start + n_eps):
@@ -161,7 +165,7 @@ class ExpertDataset(th.utils.data.Dataset):
             left_rgb = self.process_image(ep_dir / 'left_rgb/{:0>4d}.png'.format(step_idx))
             right_rgb = self.process_image(ep_dir / 'right_rgb/{:0>4d}.png'.format(step_idx))
             state_dict = self.trajs_states[j]
-            traj_plot_rgb = traj_plotter_rgb(state_dict['traj'])
+            traj_plot_rgb = traj_plotter_rgb(state_dict['traj'], self.bev_resize) / 255.0
 
             images = th.stack([left_rgb, central_rgb, right_rgb, traj_plot_rgb])
             extrinsics = th.Tensor(EXTRINSICS)

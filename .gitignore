@@ -1,3 +1,7 @@
 .venv
 gail_experts
 *.pyc
+eval
+ckpt
+ckpt2
+eval2
